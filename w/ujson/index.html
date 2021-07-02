@@ -1,0 +1,212 @@
+<!doctype html><html lang=en-us><meta charset=utf-8><meta http-equiv=X-UA-Compatible content="IE=edge"><title>µjson - A minimal JSON parser and transformer in Go | Hello! I&#39;m Oliver N.</title><meta name=description content="I&#39;m a software maker specialized in Go and JavaScript. My latest project is [OctoX](http://octox.io), a browser extension for navigating GitHub."><meta name=viewport content="width=device-width,initial-scale=1"><meta name=robots content=all,follow><meta name=googlebot content=index,follow,snippet,archive><meta property=og:title content="µjson - A minimal JSON parser and transformer in Go"><meta property=og:description content="µjson is a minimal JSON parser and transformer that works on unstructured (and trusted) JSON. It works by parsing input and calling the given callback function when encountering each item.
+Motivation Sometimes we just want to make some minimal changes to a JSON document or do some generic transformations without fully unmarshalling it. For example, removing blacklisted keys from response JSON. Why spend all the cost on unmarshalling into a map[string]interface{} just to immediately marshal it again."><meta property=og:type content=article><meta property=og:url content=https://olvrng.github.io/w/ujson/ ><meta property=og:image content=https://olvrng.github.io/images/ogx.png><meta property=article:published_time content=2021-01-09T00:00:00&#43;00:00><meta property=article:modified_time content=2021-01-09T00:00:00&#43;00:00><meta name=twitter:card content=summary><meta name=twitter:image content=https://olvrng.github.io/images/ogx.png><meta name=twitter:title content="µjson - A minimal JSON parser and transformer in Go"><meta name=twitter:description content="µjson is a minimal JSON parser and transformer that works on unstructured (and trusted) JSON. It works by parsing input and calling the given callback function when encountering each item.
+Motivation Sometimes we just want to make some minimal changes to a JSON document or do some generic transformations without fully unmarshalling it. For example, removing blacklisted keys from response JSON. Why spend all the cost on unmarshalling into a map[string]interface{} just to immediately marshal it again."><link rel=stylesheet href=https://olvrng.github.io/css/style-classic.css><link rel=stylesheet href=https://olvrng.github.io/style.css><link rel=icon type=image/png href=/images/favicon.png><script async src="https://www.googletagmanager.com/gtag/js?id=G-L5X8RJDCLM"></script><script>function gtag(){dataLayer.push(arguments)}window.dataLayer=window.dataLayer||[],gtag("js",new Date),gtag("config","G-L5X8RJDCLM")</script><body class="max-width mx-auto px3 ltr"><div class="content index py4"><div id=header-post><a id=menu-icon href=/ ><i class="fas fa-chevron-left fa-lg"></i> <span class=icon-text>Home&nbsp;</span></a> <a id=menu-icon-tablet href=/ ><i class="fas fa-chevron-left fa-lg"></i> <span class=icon-text>Home&nbsp;</span></a></div><article class=post itemscope itemtype=http://schema.org/BlogPosting><header><h1 class=posttitle itemprop="name headline">µjson - A minimal JSON parser and transformer in Go</h1><div class=meta><div class=postdate><time datetime="2021-01-09 00:00:00 &#43;0000 UTC" itemprop=datePublished>2021-01-09</time></div><div class=published-at>&nbsp;・&nbsp;published at <a target=_blank href=https://hackernoon.com/json-a-minimal-json-parser-and-transformer-in-go-8eo34lp>Hacker Noon</a> , <a target=_blank href=https://medium.com/swlh/%C2%B5json-a-minimal-json-parser-and-transformer-in-go-3798c4a46d3a>The Startup</a></div></div></header><div class=content itemprop=articleBody><p><a href=https://github.com/olvrng/ujson>µjson</a> is a minimal JSON parser and transformer that works on <em>unstructured (and trusted) JSON</em>. It works by parsing input and calling the given callback function when encountering each item.<h2 id=motivation>Motivation</h2><p>Sometimes we just want to make some minimal changes to a JSON document or do some generic transformations without fully unmarshalling it. For example, removing blacklisted keys from response JSON. Why spend all the cost on unmarshalling into a <code>map[string]interface{}</code> just to immediately marshal it again. The following code is taken from <a href=https://stackoverflow.com/questions/35441254/making-minimal-modification-to-json-data-without-a-structure-in-golang>StackOverflow</a>:<pre><code class=language-json>{
+  &quot;responseHeader&quot;: {
+    &quot;status&quot;: 0,
+    &quot;QTime&quot;: 0,
+    &quot;params&quot;: {
+      &quot;q&quot;: &quot;solo&quot;,
+      &quot;wt&quot;: &quot;json&quot;
+    }
+  },
+  &quot;response&quot;: {
+    &quot;numFound&quot;: 2,
+    &quot;start&quot;: 0,
+    &quot;docs&quot;: [
+      { &quot;name&quot;: &quot;foo&quot; },
+      { &quot;name&quot;: &quot;bar&quot; }
+    ]
+  }
+}
+</code></pre><p>With <a href=https://github.com/olvrng/ujson>µjson</a>, we can quickly write <a href=https://godoc.org/github.com/olvrng/ujson#example-Walk--RemoveBlacklistFields2>a simple transformation</a> to remove <code>&quot;responseHeader&quot;</code> completely from all responses, once and forever. More on that later.<p>The original scenario that leads me to write the package is because of <strong><em>int64</em></strong>. When working in Go and PostgreSQL, I use <strong><em>int64</em></strong> (instead of <strong><em>string</em></strong>) for <strong><em>ids</em></strong> because it’s more effective and has enormous space for randomly generated ids. It’s not as big as UUID, 128 bits, but still big enough for production use. In PostgreSQL, those ids can be stored as bigint and being effectively indexed. But for JavaScript, it can only process integer up to 53 bits (JavaScript has BigInt but that’s a different story, and using it will make things even more complicated).<p>So we need to wrap those int64s into strings before sending them to JavaScript. In Go and PostgreSQL, the JSON is <code>{&quot;order_id&quot;: 12345678}</code> but JavaScript will see it as <code>{&quot;order_id&quot;: &quot;12345678&quot;}</code> (note that the value is quoted). In Go, we can define a custom type and implement the <a href=https://golang.org/pkg/encoding/json/#Marshaler>json.Marshaler</a> interface. But in PostgreSQL, that’s just not possible or too complicated. I wrote a service that receives JSON from PostgreSQL and converts it to be consumable by JavaScript. The service also removes some blacklisted keys or does some other transformations (for example, change <code>orderId</code> to <code>order_id</code>).<p>So I wrote a simple JSON parser and transformer. It can:<ul><li><a href=https://godoc.org/github.com/olvrng/ujson#example-Walk>Print all keys and values in order</a><li><a href=https://godoc.org/github.com/olvrng/ujson#example-Walk--Reformat>Reformat input</a><li><a href=https://godoc.org/github.com/olvrng/ujson#example-Walk--Reconstruct>Remove all whitespaces</a><li><a href=https://godoc.org/github.com/olvrng/ujson#example-Walk--RemoveBlacklistFields2>Remove blacklisted keys</a><li><a href=https://godoc.org/github.com/olvrng/ujson#example-Walk--WrapInt64InString>Wrap int64s into strings before handing to JavaScript</a><li>Extract some values<li>… and more.</ul><p><strong><em>Important:</em></strong> <em>Behavior is undefined for invalid JSON, use on trusted input only! For untrusted input, you might want to run it through <a href=https://golang.org/pkg/encoding/json/#Valid>json.Valid()</a> before handing it to <a href=https://github.com/olvrng/ujson>µjson</a>.</em><h2 id=let-s-see-how-µjson-work-by-examples>Let’s see how µjson work by examples:</h2><h3 id=1-print-all-keys-and-values-in-order>1. Print all keys and values in order</h3><p>The callback function is called when an object key/value or an array key is encountered. It receives 3 params in order: <code>level</code>, <code>key</code> and <code>value</code>.<ul><li><code>level</code> is the indentation level of the JSON, if you format it properly. It starts from 0. It increases after entering an object or array and decreases after leaving.<li><code>key</code> is the raw key of the current object or empty otherwise. It can be a double-quoted string or empty.<li><code>value</code> is the raw value of the current item or a bracket. It can be a string, number, boolean, null, or one of the following brackets: <code>{ } [ ]</code>. Values will never be empty.</ul><p>It’s important to note that key and value are provided as raw. Strings are always double-quoted. It’s there for keeping the library fast and ignoring unnecessary operations. For example, when you only want to reformat the output JSON properly; you don’t want to unquote those strings and then immediately quote them again; you just need to output them unmodified. And there are <a href=https://godoc.org/github.com/olvrng/ujson#Unquote>ujson.Unquote()</a> and <a href=https://godoc.org/github.com/olvrng/ujson#AppendQuote>ujson.AppendQuote()</a> when you need to get the original strings.<p>When processing arrays and objects, first the open bracket (<code>[</code>, <code>{</code>) will be provided as value, followed by its children, and the close bracket (<code>]</code>, <code>}</code>). When encountering open brackets, you can make the callback function return <code>false</code> to skip the object/array entirely.<pre><code class=language-go>package main	
+
+import &quot;fmt&quot;	
+import &quot;github.com/olvrng/ujson&quot;	
+
+func main() {	
+	input := []byte(`{	
+		&quot;id&quot;: 12345,	
+		&quot;name&quot;: &quot;foo&quot;,	
+		&quot;numbers&quot;: [&quot;one&quot;, &quot;two&quot;],	
+		&quot;tags&quot;: {&quot;color&quot;: &quot;red&quot;, &quot;priority&quot;: &quot;high&quot;},	
+		&quot;active&quot;: true	
+	}`)	
+	ujson.Walk(input, func(level int, key, value []byte) bool {	
+		fmt.Printf(&quot;%2v% 12s : %s\n&quot;, level, key, value)	
+		return true	
+	})	
+}
+</code></pre><pre><code> 0             : {
+ 1        &quot;id&quot; : 12345
+ 1      &quot;name&quot; : &quot;foo&quot;
+ 1   &quot;numbers&quot; : [
+ 2             : &quot;one&quot;
+ 2             : &quot;two&quot;
+ 1             : ]
+ 1      &quot;tags&quot; : {
+ 2     &quot;color&quot; : &quot;red&quot;
+ 2  &quot;priority&quot; : &quot;high&quot;
+ 1             : }
+ 1    &quot;active&quot; : true
+ 0             : }
+</code></pre><h3 id=0-the-simplest-examples>0. The simplest examples</h3><p>To easily get an idea on <code>level</code>, <code>key</code> and <code>value</code>, here are the simplest examples:<pre><code class=language-go>package main
+
+import &quot;fmt&quot;
+import &quot;github.com/olvrng/ujson&quot;
+
+func main() {
+	input0 := []byte(`true`)
+	ujson.Walk(input0, func(level int, key, value []byte) bool {
+		fmt.Printf(&quot;level=%v key=%s value=%s\n&quot;, level, key, value)
+		return true
+	})
+	// output:
+	//   level=0 key= value=true
+
+	input1 := []byte(`{ &quot;key&quot;: 42 }`)
+	ujson.Walk(input1, func(level int, key, value []byte) bool {
+		fmt.Printf(&quot;level=%v key=%s value=%s\n&quot;, level, key, value)
+		return true
+	})
+	// output:
+	//   level=0 key= value={
+	//   level=1 key=&quot;key&quot; value=42
+	//   level=0 key= value=}
+
+	input2 := []byte(`[ true ]`)
+	ujson.Walk(input2, func(level int, key, value []byte) bool {
+		fmt.Printf(&quot;level=%v key=%s value=%s\n&quot;, level, key, value)
+		return true
+	})
+	// output:
+	//   level=0 key= value=[
+	//   level=1 key= value=true
+	//   level=0 key= value=]
+}
+</code></pre><p>In the first example, there is only a single boolean value. The callback function is called once with <code>level=0</code>, <code>key</code> is empty and <code>value=true</code>.<p>In the second example, the callback function is called 3 times. Two times for open and close brackets with <code>level=0</code>, key is empty and value is the bracketed character. The other time for the only key with <code>level=1</code>, <code>key</code> is <code>&quot;key&quot;</code> and <code>value=42</code>. Note that the key is quoted and you need to call <a href=https://godoc.org/github.com/olvrng/ujson#Unquote>ujson.Unquote()</a> to retrieve the unquoted string.<p>The last example is like the second, but with an array instead. Keys are always empty inside arrays.<h3 id=2-reformat-input>2. Reformat input</h3><p>In this example, the input JSON is formatted with correct indentation. As processing the input key by key, the callback function reconstructs the JSON. It outputs each key/value pair in its own line, prefixed with spaces equal to the param level. There is a catch, though. Valid JSON requires commas between values in objects and arrays. So there is <a href=https://godoc.org/github.com/olvrng/ujson#ShouldAddComma>ujson.ShouldAddComma()</a> for checking whether a comma should be inserted.<pre><code class=language-go>package main
+
+import &quot;fmt&quot;
+import &quot;github.com/olvrng/ujson&quot;
+
+func main() {
+	input := []byte(`{&quot;id&quot;:12345,&quot;name&quot;:&quot;foo&quot;,&quot;numbers&quot;:[&quot;one&quot;,&quot;two&quot;],&quot;tags&quot;:{&quot;color&quot;:&quot;red&quot;,&quot;priority&quot;:&quot;high&quot;},&quot;active&quot;:true}`)
+
+	b := make([]byte, 0, 1024)
+	err := ujson.Walk(input, func(level int, key, value []byte) bool {
+		if len(b) != 0 &amp;&amp; ujson.ShouldAddComma(value, b[len(b)-1]) {
+			b = append(b, ',')
+		}
+		b = append(b, '\n')
+		for i := 0; i &lt; level; i++ {
+			b = append(b, '\t')
+		}
+		if len(key) &gt; 0 {
+			b = append(b, key...)
+			b = append(b, `: `...)
+		}
+		b = append(b, value...)
+		return true
+	})
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf(&quot;%s\n&quot;, b)
+}
+</code></pre><pre><code class=language-json>{
+	&quot;id&quot;: 12345,
+	&quot;name&quot;: &quot;foo&quot;,
+	&quot;numbers&quot;: [
+		&quot;one&quot;,
+		&quot;two&quot;
+	],
+	&quot;tags&quot;: {
+		&quot;color&quot;: &quot;red&quot;,
+		&quot;priority&quot;: &quot;high&quot;
+	},
+	&quot;active&quot;: true
+}
+</code></pre><p>There is a built-in method <a href=https://godoc.org/github.com/olvrng/ujson#Reconstruct>ujson.Reconstruct()</a> when you want to remove all the whitespaces.<h3 id=3-remove-blacklisted-keys>3. Remove blacklisted keys</h3><p>This example demonstrates removing some keys from the input JSON. The key param is compared with a pre-defined list. If there is a match, the blacklisted key and its value are dropped. The callback function returns false for skipping the entire value (which may be an object or array). Note that the list is quoted, i.e. <code>&quot;numbers&quot;</code> and <code>&quot;active&quot;</code> instead of <code>number</code> and <code>active</code>. For more advanced checking, you may want to run <a href=https://godoc.org/github.com/olvrng/ujson#Unquote>ujson.Unquote()</a> on the key.<pre><code class=language-go>package main
+
+import &quot;bytes&quot;
+import &quot;fmt&quot;
+import &quot;github.com/olvrng/ujson&quot;
+
+func main() {
+	input := []byte(`{
+		&quot;id&quot;: 12345,
+		&quot;name&quot;: &quot;foo&quot;,
+		&quot;numbers&quot;: [&quot;one&quot;, &quot;two&quot;],
+		&quot;tags&quot;: {&quot;color&quot;: &quot;red&quot;, &quot;priority&quot;: &quot;high&quot;},
+		&quot;active&quot;: true
+	}`)
+
+	blacklistFields := [][]byte{
+		[]byte(`&quot;numbers&quot;`), // note the quotes
+		[]byte(`&quot;active&quot;`),
+	}
+	b := make([]byte, 0, 1024)
+	err := ujson.Walk(input, func(_ int, key, value []byte) bool {
+		for _, blacklist := range blacklistFields {
+			if bytes.Equal(key, blacklist) {
+				// remove the key and value from the output
+				return false
+			}
+		}
+
+		// write to output
+		if len(b) != 0 &amp;&amp; ujson.ShouldAddComma(value, b[len(b)-1]) {
+			b = append(b, ',')
+		}
+		if len(key) &gt; 0 {
+			b = append(b, key...)
+			b = append(b, ':')
+		}
+		b = append(b, value...)
+		return true
+	})
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf(&quot;%s\n&quot;, b)
+}
+</code></pre><pre><code class=language-json>{&quot;id&quot;:12345,&quot;name&quot;:&quot;foo&quot;,&quot;tags&quot;:{&quot;color&quot;:&quot;red&quot;,&quot;priority&quot;:&quot;high&quot;}}
+</code></pre><p>As you see in the output, <code>&quot;numbers&quot;</code> and <code>&quot;active&quot;</code> are removed.<h3 id=4-wrap-int64-in-string>4. Wrap int64 in string</h3><p>This is the original motivation behind <a href=https://github.com/olvrng/ujson>µjson</a>. The following example finds keys ending with <code>_id&quot;</code> (<code>&quot;order_id&quot;</code>, <code>&quot;item_id&quot;</code>, etc.) and converts their values from numbers to strings, by simply wrapping them in double-quotes.<p>For valid JSON, values are never empty. We can test the first byte of <code>value</code> (<code>value[0]</code>) to get its type:<ul><li><code>n</code> : Null<li><code>f</code> , <code>t</code> : Boolean<li><code>0</code>&hellip;<code>9</code> : Number<li><code>&quot;</code> : String, see <a href=https://godoc.org/github.com/olvrng/ujson#Unquote>ujson.Unquote()</a><li><code>[</code> , <code>]</code> : Array<li><code>{</code> , <code>}</code> : Object</ul><p>In this case, we check <code>value[0]</code> within <code>0</code>…<code>9</code> to see whether it’s a number, then insert double-quotes.<pre><code class=language-go>package main
+
+import &quot;bytes&quot;
+import &quot;fmt&quot;
+import &quot;github.com/olvrng/ujson&quot;
+
+func main() {
+	input := []byte(`{&quot;order_id&quot;: 12345678901234, &quot;number&quot;: 12, &quot;item_id&quot;: 12345678905678, &quot;counting&quot;: [1,&quot;2&quot;,3]}`)
+
+	suffix := []byte(`_id&quot;`) // note the ending quote &quot;
+	b := make([]byte, 0, 256)
+	err := ujson.Walk(input, func(_ int, key, value []byte) bool {
+		// Test for keys with suffix _id&quot; and value is an int64 number. For valid json,
+		// values will never be empty, so we can safely test only the first byte.
+		shouldWrap := bytes.HasSuffix(key, suffix) &amp;&amp; value[0] &gt; '0' &amp;&amp; value[0] &lt;= '9'
+
+		// transform the input, wrap values in double quotes
+		if len(b) != 0 &amp;&amp; ujson.ShouldAddComma(value, b[len(b)-1]) {
+			b = append(b, ',')
+		}
+		if len(key) &gt; 0 {
+			b = append(b, key...)
+			b = append(b, ':')
+		}
+		if shouldWrap {
+			b = append(b, '&quot;')
+		}
+		b = append(b, value...)
+		if shouldWrap {
+			b = append(b, '&quot;')
+		}
+		return true
+	})
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf(&quot;%s\n&quot;, b)
+}
+</code></pre><pre><code class=language-json>{&quot;order_id&quot;:&quot;12345678901234&quot;,&quot;number&quot;:12,&quot;item_id&quot;:&quot;12345678905678&quot;,&quot;counting&quot;:[1,&quot;2&quot;,3]}
+</code></pre><p>After processing, the numbers in <code>&quot;order_id&quot;</code> and <code>&quot;item_id&quot;</code> are quoted as strings. And JavaScript should be happy now! 🎉 🎉<h2 id=recap>Recap</h2><p>You can start using it by <a href=https://github.com/olvrng/ujson><code>import &quot;github.com/olvrng/ujson&quot;</code></a>. The <a href=https://github.com/olvrng/ujson/blob/master/%C2%B5json.go>source code</a> is short and easy to read. Feedback is welcome 👋</div></article><div id=footer-post-container><div id=footer-post><div id=nav-footer style=display:none><ul></ul></div><div id=toc-footer class=tog-footer style=display:none><nav id=TableOfContents><ul><li><ul><li><a href=#motivation>Motivation</a><li><a href=#let-s-see-how-µjson-work-by-examples>Let’s see how µjson work by examples:</a><ul><li><a href=#1-print-all-keys-and-values-in-order>1. Print all keys and values in order</a><li><a href=#0-the-simplest-examples>0. The simplest examples</a><li><a href=#2-reformat-input>2. Reformat input</a><li><a href=#3-remove-blacklisted-keys>3. Remove blacklisted keys</a><li><a href=#4-wrap-int64-in-string>4. Wrap int64 in string</a></ul><li><a href=#recap>Recap</a></ul></ul></nav></div><div id=share-footer class=tog-footer style=display:none><ul><li><a class=icon href="http://www.linkedin.com/shareArticle?url=https%3a%2f%2folvrng.github.io%2fw%2fujson%2f&title=%c2%b5json%20-%20A%20minimal%20JSON%20parser%20and%20transformer%20in%20Go"><i class="fab fa-linkedin fa-lg" aria-hidden=true></i></a><li><a class=icon href="http://www.facebook.com/sharer.php?u=https%3a%2f%2folvrng.github.io%2fw%2fujson%2f"><i class="fab fa-facebook fa-lg" aria-hidden=true></i></a><li><a class=icon href="https://twitter.com/share?url=https%3a%2f%2folvrng.github.io%2fw%2fujson%2f&text=%c2%b5json%20-%20A%20minimal%20JSON%20parser%20and%20transformer%20in%20Go"><i class="fab fa-twitter fa-lg" aria-hidden=true></i></a><li><a class=icon href="http://reddit.com/submit?url=https%3a%2f%2folvrng.github.io%2fw%2fujson%2f&title=%c2%b5json%20-%20A%20minimal%20JSON%20parser%20and%20transformer%20in%20Go"><i class="fab fa-reddit fa-lg" aria-hidden=true></i></a><li><a class=icon href="https://news.ycombinator.com/submitlink?u=https%3a%2f%2folvrng.github.io%2fw%2fujson%2f&t=%c2%b5json%20-%20A%20minimal%20JSON%20parser%20and%20transformer%20in%20Go"><i class="fab fa-hacker-news fa-lg" aria-hidden=true></i></a></ul></div><div id=actions-footer><a id=home class=icon href=/ ><i class="fas fa-chevron-left fa-lg" aria-hidden=true></i> Home</a> <a id=toc class=icon href=# onclick='return $(".tog-footer").toggle(),!1'><i class="fas fa-list fa-lg" aria-hidden=true></i> TOC</a> <a id=share class=icon href=# onclick='return $(".tog-footer").toggle(),!1'><i class="fas fa-share-alt fa-lg" aria-hidden=true></i> Share</a></div></div></div><footer id=footer><div class=footer-left>Copyright &copy; 2021 Oliver N.</div><div class=footer-right><nav><ul></ul></nav></div></footer></div><link rel=stylesheet href=/lib/font-awesome/css/all.min.css><script src=/lib/jquery/jquery.min.js></script><script src=/js/main.js></script>

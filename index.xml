@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Hello! I&#39;m Oliver N.</title>
+    <link>https://olvrng.github.io/</link>
+    <description>Recent content on Hello! I&#39;m Oliver N.</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    <copyright>Oliver N.</copyright>
+    <lastBuildDate>Tue, 02 Feb 2021 00:00:00 +0000</lastBuildDate>
+    
+	<atom:link href="https://olvrng.github.io/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    <item>
+      <title>Front-End development without node_modules using Skypack and Snowpack</title>
+      <link>https://olvrng.github.io/w/esm/</link>
+      <pubDate>Tue, 02 Feb 2021 00:00:00 +0000</pubDate>
+      
+      <guid>https://olvrng.github.io/w/esm/</guid>
+      <description>Once upon a time, we could simply put an HTML and a script file into an FTP server, quickly have a working website and call it a day.
+Today, we have to jump through many hoops just to get the right things in the right places. Suppose Alice wants to spend her weekend making a simple to-do app or whatever little idea she enjoys. First, she has to install a big heap of 10k npm packages files.</description>
+    </item>
+    
+    <item>
+      <title>µjson - A minimal JSON parser and transformer in Go</title>
+      <link>https://olvrng.github.io/w/ujson/</link>
+      <pubDate>Sat, 09 Jan 2021 00:00:00 +0000</pubDate>
+      
+      <guid>https://olvrng.github.io/w/ujson/</guid>
+      <description>µjson is a minimal JSON parser and transformer that works on unstructured (and trusted) JSON. It works by parsing input and calling the given callback function when encountering each item.
+Motivation Sometimes we just want to make some minimal changes to a JSON document or do some generic transformations without fully unmarshalling it. For example, removing blacklisted keys from response JSON. Why spend all the cost on unmarshalling into a map[string]interface{} just to immediately marshal it again.</description>
+    </item>
+    
+    <item>
+      <title></title>
+      <link>https://olvrng.github.io/cv/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      
+      <guid>https://olvrng.github.io/cv/</guid>
+      <description></description>
+    </item>
+    
+  </channel>
+</rss>
